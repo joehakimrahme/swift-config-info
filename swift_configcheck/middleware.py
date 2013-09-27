@@ -21,8 +21,30 @@ from swift.common.swob import Request, Response
 from swift.common.utils import json
 
 
-class ConfigcheckMiddleware(object):
+class ConfigInfoMiddleware(object):
     """
+    Config Info middleware used to programmatically request info about the
+    cluster.
+
+    If the path is /configinfo it will respond with a JSON formatted string
+    revealing info about the configuration of the cluster. The administrator
+    can decide which parts of the conf file are made public, so that sensitive
+    information can remain private.
+
+    To enable this middleware, add it to the pipeline in your proxy-server.conf
+    file. It should be added before any authentication (e.g., tempauth or
+    keystone) middleware::
+
+        [pipeline:main]
+        pipeline = ... configinfo ... authtoken ... proxy-server
+
+    And add a filter section, such as::
+        [filter:configinfo]
+        use = egg:swift#configinfo
+        public_config = pipeline:main filter:tempurl
+
+    public_config is a variable that holds the sections of the conf file that
+    are included in the JSON response.
     """
 
     def __init__(self, app, conf):
@@ -77,5 +99,5 @@ def filter_factory(global_conf, **local_conf):
     conf.update(local_conf)
 
     def capability_filter(app):
-        return ConfigcheckMiddleware(app, conf)
+        return ConfigInfoMiddleware(app, conf)
     return capability_filter
