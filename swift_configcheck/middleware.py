@@ -18,6 +18,7 @@
 from ConfigParser import ConfigParser
 
 from swift.common.swob import Request, Response
+from swift.common.swob import HTTPMethodNotAllowed, HTTPServerError
 from swift.common.utils import json
 
 
@@ -50,48 +51,79 @@ class ConfigInfoMiddleware(object):
     def __init__(self, app, conf):
         self.app = app
         self.conf = conf
+        self.endpoint_path = "/configinfo"
+        self.config = ConfigParser()
+        self.public_config = [section.strip() for section in
+                              self.conf.get("public_config", None).split(",")]
 
     def __call__(self, env, start_response):
-        req = Request(env)
-        try:
-            if req.path == "/configcheck":
-                handler = self.GET
-                return handler(req)(env, start_response)
+        request = Request(env)
 
-        except UnicodeError:
-            # What should I do here?
-            pass
+        if not request.path == self.endpoint_path:
+            return self.app(env, start_response)
 
-        return self.app(env, start_response)
-
-    def GET(self, req):
-
-        config = ConfigParser()
+        if request.method != 'GET':
+            resp = HTTPMethodNotAllowed(req=request, headers={"Allow": "GET"})
+            return resp(env, start_response)
 
         try:
-            config.read(self.conf["__file__"])
-        except IOError:
-            return self.app
-        except KeyError:
-            return self.app
+            self.config.read(self.conf["__file__"])
+        except (IOError, KeyError):
+            resp = HTTPServerError(req=request,
+                                   body="An error occurred",
+                                   contentb_type="text/plain")
+            return resp(env, start_response)
 
-        public_config = [section.strip() for section in
-                         self.conf.get("public_config", None).split(",")]
+        config_dict = self._config_parser_to_nested_dict()
 
+        resp = Response(req=request,
+                        body=json.dumps(config_dict),
+                        content_type="application/json")
+
+        return resp(env, start_response)
+
+    def _config_parser_to_nested_dict(self):
+        """A helper function that returns a dictionary whose keys are the
+        sections specified in self.public_config and the values are mappings
+        of options and their values for each section, read in self.config.
+
+        For instance, if self.config has parsed a this file::
+
+            [section1]
+            option1 = value1
+            option2 = value2
+            [section2]
+            option1 = value1
+            [section3]
+            option1 = value1
+            option2 = value2
+            option3 = value3
+
+        and self.public_config is this::
+
+            ["section1", "section2"]
+
+        then this function will return this dictionary::
+
+            {"section1": {"option1": "value1",
+                          "option2": "value2"
+                         },
+             "section2": {"option1": "value1"}
+            }
+
+        """
         config_dict = {}
-        for section in public_config:
-            if config.has_section(section):
+        for section in self.public_config:
+            if self.config.has_section(section):
                 section_dict = {}
-                for name, value in config.items(section):
+                for name, value in self.config.items(section):
                     section_dict[name] = value
                 config_dict[section] = section_dict
 
             else:
                 config_dict[section] = None
 
-        return Response(request=req,
-                        body=json.dumps(config_dict),
-                        content_type="application/json")
+        return config_dict
 
 
 def filter_factory(global_conf, **local_conf):
