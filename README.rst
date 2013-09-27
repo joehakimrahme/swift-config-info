@@ -79,7 +79,7 @@ If one of the sections defined in `public_conf_sections` doesn't exist in the co
           "log_level": "DEBUG",
           "pipeline": "catch_errors healthcheck proxy-logging capability cache bulk slo ratelimit   authtoken keystoneauth tempauth  tempurl formpost staticweb container-quotas account-quotas proxy-logging proxy-server",
           "swift_dir": "/etc/swift",
-1          "user": "vagrant",
+          "user": "vagrant",
           "workers": "1"
       }
   }

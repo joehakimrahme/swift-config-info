@@ -108,9 +108,7 @@ class ConfigInfoMiddleware(object):
             {"section1": {"option1": "value1",
                           "option2": "value2"
                          },
-             "section2": {"option1": "value1"}
-            }
-
+             "section2": {"option1": "value1"}}
         """
         config_dict = {}
         for section in self.public_config:
