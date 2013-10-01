@@ -20,7 +20,7 @@ import tempfile
 import unittest
 
 from swift.common.swob import Request, Response
-import swift_configcheck.middleware as configinfo
+import swift_config_info.middleware as configinfo
 
 
 conf_file_text = """

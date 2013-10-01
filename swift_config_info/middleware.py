@@ -24,7 +24,7 @@ from swift.common.utils import json
 
 class ConfigInfoMiddleware(object):
     """
-    Config Info middleware used to programmatically request info about the
+    ConfigInfo middleware used to programmatically request info about the
     cluster.
 
     If the path is /configinfo it will respond with a JSON formatted string
