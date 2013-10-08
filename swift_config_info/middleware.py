@@ -18,13 +18,16 @@
 from ConfigParser import ConfigParser
 
 from swift.common.swob import Request, Response
-from swift.common.swob import HTTPMethodNotAllowed, HTTPServerError
+from swift.common.swob import HTTPBadRequest
+from swift.common.swob import HTTPMethodNotAllowed
+from swift.common.swob import HTTPNotFound
+from swift.common.swob import HTTPServerError
 from swift.common.utils import json
 
 
 class ConfigInfoMiddleware(object):
     """
-    ConfigInfo middleware used to programmatically request info about the
+    Config Info middleware used to programmatically request info about the
     cluster.
 
     If the path is /configinfo it will respond with a JSON formatted string
@@ -59,7 +62,7 @@ class ConfigInfoMiddleware(object):
     def __call__(self, env, start_response):
         request = Request(env)
 
-        if not request.path == self.endpoint_path:
+        if not request.path.startswith(self.endpoint_path):
             return self.app(env, start_response)
 
         if request.method != 'GET':
@@ -71,10 +74,27 @@ class ConfigInfoMiddleware(object):
         except (IOError, KeyError):
             resp = HTTPServerError(req=request,
                                    body="An error occurred",
-                                   contentb_type="text/plain")
+                                   content_type="text/plain")
             return resp(env, start_response)
 
         config_dict = self._config_parser_to_nested_dict()
+
+        try:
+            endpoint, section, option = request.split_path(1, 3, False)
+        except ValueError:
+            resp = HTTPBadRequest(req=request, headers={})
+            return resp(env, start_response)
+
+        try:
+            if section and option:
+                config_dict = {section: {option: config_dict[section][option]}}
+            elif section and not option:
+                config_dict = {section: config_dict[section]}
+        except KeyError:
+            resp = HTTPNotFound(req=request,
+                                body="Requested values aren't available",
+                                content_type="text/plain")
+            return resp(env, start_response)
 
         resp = Response(req=request,
                         body=json.dumps(config_dict),
@@ -111,15 +131,16 @@ class ConfigInfoMiddleware(object):
              "section2": {"option1": "value1"}}
         """
         config_dict = {}
-        for section in self.public_config:
-            if self.config.has_section(section):
+
+        for sect in self.public_config:
+            if self.config.has_section(sect):
                 section_dict = {}
-                for name, value in self.config.items(section):
+                for name, value in self.config.items(sect):
                     section_dict[name] = value
-                config_dict[section] = section_dict
+                config_dict[sect] = section_dict
 
             else:
-                config_dict[section] = None
+                config_dict[sect] = None
 
         return config_dict
 
@@ -128,6 +149,4 @@ def filter_factory(global_conf, **local_conf):
     conf = global_conf
     conf.update(local_conf)
 
-    def capability_filter(app):
-        return ConfigInfoMiddleware(app, conf)
-    return capability_filter
+    return lambda app: ConfigInfoMiddleware(app, conf)

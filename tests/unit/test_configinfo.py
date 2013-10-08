@@ -82,5 +82,46 @@ class TestConfigInfo(unittest.TestCase):
         self.assertEquals(['200 OK'], self.got_statuses)
         self.assertEquals(resp, ['FAKE APP'])
 
+    def test_config_section(self):
+        req = Request.blank('/configinfo/section1',
+                            environ={'REQUEST_METHOD': 'GET'})
+        resp = self.app(req.environ, self.start_response)
+
+        _expected_dict = {'section1': {'option1': 'value1',
+                                       'option2': 'value2'}}
+        self.assertEquals(['200 OK'], self.got_statuses)
+        self.assertEquals(resp, [json.dumps(_expected_dict)])
+
+    def test_config_empty_section(self):
+        """This tests the request of a section not existing in the conf file
+        but explicitly allowed by the admin in public_config.
+        """
+        req = Request.blank('/configinfo/section3',
+                            environ={'REQUEST_METHOD': 'GET'})
+        resp = self.app(req.environ, self.start_response)
+
+        _expected_dict = {'section3': None}
+
+        self.assertEquals(['200 OK'], self.got_statuses)
+        self.assertEquals(resp, [json.dumps(_expected_dict)])
+
+    def test_config_option(self):
+        req = Request.blank('/configinfo/section1/option1',
+                            environ={'REQUEST_METHOD': 'GET'})
+        resp = self.app(req.environ, self.start_response)
+
+        _expected_dict = {'section1': {'option1': 'value1'}}
+
+        self.assertEquals(['200 OK'], self.got_statuses)
+        self.assertEquals(resp, [json.dumps(_expected_dict)])
+
+    def test_config_bad_section(self):
+        req = Request.blank('/configinfo/section40',
+                            environ={'REQUEST_METHOD': 'GET'})
+        resp = self.app(req.environ, self.start_response)
+
+        self.assertEquals(['404 Not Found'], self.got_statuses)
+
+
 if __name__ == '__main__':
     unittest.main()
