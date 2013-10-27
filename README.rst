@@ -83,3 +83,25 @@ If one of the sections defined in `public_conf_sections` doesn't exist in the co
           "workers": "1"
       }
   }
+
+
+It's possibe to query the middleware for a single section, or a single option in the section, by appending `/section(/option)` in the request URL:
+::
+
+   curl 'http://192.168.33.10:8080/configinfo/filter:tempurl' | python -m json tools
+
+   {
+    "filter:tempurl": {
+        "bind_port": "8080",
+        "log_level": "DEBUG",
+        "swift_dir": "/etc/swift",
+        "use": "egg:swift#tempurl",
+        "user": "vagrant",
+        "workers": "1"}
+   }
+
+   curl 'http://192.168.33.10:8080/configinfo/filter:tempurl/log_level'
+
+   "DEBUG"
+
+If the section or the option requested is not available in `public_config`, the middleware returns a 404 HTTPNotFound error.
